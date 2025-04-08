@@ -1,0 +1,129 @@
+---
+title: "605 HW 11"
+author: "Tenzin"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The attached who.csv dataset contains real-world data from 2008. The variables included follow.
+Country: name of the country
+LifeExp: average life expectancy for the country in years
+InfantSurvival: proportion of those surviving to one year or more
+Under5Survival: proportion of those surviving to five years or more
+TBFree: proportion of the population without TB.
+PropMD: proportion of the population who are MDs
+PropRN: proportion of the population who are RNs
+PersExp: mean personal expenditures on healthcare in US dollars at average exchange rate
+GovtExp: mean government expenditures per capita on healthcare, US dollars at average exchange rate
+TotExp: sum of personal and government expenditures.
+
+```{r libraries, include=F}
+library(tidyverse)
+```
+
+# Load Data
+```{r data}
+data <- read.csv("https://raw.githubusercontent.com/tenzinda97/Discussion-11/main/who.csv")
+
+summary(data)
+```
+
+
+
+# 1.
+
+## Provide a scatterplot of LifeExp~TotExp, and run simple linear regression. Do not transform the variables. Provide and interpret the F statistics, R^2, standard error,and p-values only. Discuss whether the assumptions of simple linear regression met.
+
+```{r}
+data |> ggplot(aes(x = TotExp, y = LifeExp)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+model1 <- lm(LifeExp ~ TotExp, data = data)
+summary(model1)
+```
+
+The linear regression model has an F-statistic of 65.26, and a p-value of 7.714e-14, which means that the model is statistically significant and we would reject the null hypthesis that there isn't a relationship. The R-Squared value of 0.2577 indicates that 25.77% of the variance in life expectancy can be explained by total expenditures. The adjusted R-Squared value of 0.2537 is similar to the R-Squared value, indicating that the model is not overfitting the data, this is due to only plotting one variable against another. The scatterplot shows that while there is a clear positive relationship between life expectancy and total expenditures, the relationship is not linear. This also explains the discrepancy between the F-statistic and p-values showing a clear relationship and the R-Squared value being relatively low at around 25%. Additionally, the residual standard error of 9.371 seems a bit high for a variable that has a range of 40-83 with a mean of 67.38 but we would have to see if we can improve on that later.
+
+The assumptions of linear regression are linearity, independence, homoscedasticity, and normality. We will check these assumptions below.
+```{r}
+par(mfrow=c(2,2))
+hist(model1$residuals)
+plot(model1$fitted.values, model1$residuals)
+abline(h=0)
+qqnorm(model1$residuals)
+qqline(model1$residuals)
+```
+
+The histogram of the residuals and the Q-Q plot show that the residuals are not normally distributed, thus violating the assumption of normality. The residuals vs fitted values plot shows that the residuals are not homoscedastic, violating the assumption of homoscedasticity. We have previosuly shown that the relationship between life expectancy and total expenditures is not linear, thus violating the assumption of linearity. The residuals vs fitted values plot also shows that the residuals are not independent, violating the assumption of independence. We can concluse that the linear regression model is not a good fit for the data.
+
+# 2.
+
+## Raise life expectancy to the 4.6 power (i.e., LifeExp^4.6). Raise total expenditures to the 0.06 power (nearly a log transform, TotExp^.06). Plot LifeExp^4.6 as a function of TotExp^.06, and re-run the simple regression model using the transformed variables. Provide and interpret the F statistics, R^2, standard error, and p-values. Which model is "better?"
+
+```{r data prep}
+data <- data |>
+  mutate(LifeExp4.6 = LifeExp^4.6,
+         TotExp.06 = TotExp^0.06)
+
+summary(data$LifeExp4.6)
+```
+
+```{r}
+data |> ggplot(aes(x = TotExp.06, y = LifeExp4.6)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+model2 <- lm(LifeExp4.6 ~ TotExp.06, data = data)
+summary(model2)
+```
+
+The linear regression model has an F-statistic of 507.7, and a p-value of < 2.2e-16, both much better than the previous model, implying strong statistical significance. The R-Squared value of 0.7298 indicates that 72.98% of the variance in life expectancy can be explained by total expenditures. The adjusted R-Squared value of 0.7283 is similar to the R-Squared value, indicating that the model is not overfitting the data. This is a huge improvement over the previous model, which only explained 25.77% of the variance in life expectancy. The scatterplot shows that there is a clear positive relationship between life expectancy and total expenditures, and the relationship is much more linear than before. The minimum/maximum of the transformed Life Expectancy variable are 23414019/672603658 and the mean is 307221061. Based off these values, the residual standard error of 90490000 seems reasonable.
+
+We will now check the assumptions of the linear regression model.
+```{r}
+par(mfrow=c(2,2))
+hist(model2$residuals)
+plot(model2$fitted.values, model2$residuals)
+abline(h=0)
+qqnorm(model2$residuals)
+qqline(model2$residuals)
+```
+
+The histogram and the Q-Q plot of the residuals show that the residuals are pretty normally distributed, albeit with a bit of a skew. The residuals vs fitted values plot shows that the residuals are homoscedastic, and the residuals are independent. The assumptions of linearity, independence, homoscedasticity, and normality are met. We can conclude that the transformed linear regression model is a much better fit for the data. However, the transformation of the variables makes it difficult to interpret the coefficients of the model and how to make predictions on new data.
+
+# 3. Using the results from 2, forecast life expectancy when TotExp^.06 =1.5. Then forecast life expectancy when TotExp^.06=2.5. 
+
+```{r}
+new_data <- data.frame(TotExp.06 = c(1.5, 2.5))
+predict_LifeExp4.6 <- predict(model2, newdata = new_data)
+
+#transform the predictions back to the original scale
+predict_LifeExp <- predict_LifeExp4.6^(1/4.6)
+predict_LifeExp
+```
+My predictions for the given values are a life expectancy of 63.31153 for a TotExp^.06 of 1.5 and 86.50645 for a TotExp^.06 of 2.5. It is very important to note that the second case an extrapolation as the highest value in the dataset achieved a TotExp^.06 of 2.193 based off the highest LifeExp being 80. The model may not be accurate for values outside of the range of the data.
+
+
+# 4. 
+## Build the following multiple regression model and interpret the F Statistics, R^2, standard error, and p-values. How good is the model? LifeExp = b0+b1 x PropMd + b2 x TotExp +b3 x PropMD x TotExp
+
+```{r}
+model3 <- lm(LifeExp ~ PropMD + TotExp + PropMD*TotExp, data = data)
+summary(model3)
+```
+
+The multiple linear regression model has an F-statistic of 34.49, and a p-value of < 2.2e-16, which means that the model is statistically significant and we would reject the null hypthesis that there isn't a relationship. The R-Squared value of 0.3574 indicates that 35.74% of the variance in life expectancy can be explained by the predictors. The adjusted R-Squared value of 0.3471 is similar to the R-Squared value, indicating that the model is not overfitting the data. The residual standard error of 8.765 seems reasonable for a variable that has a range of 40-83 with a mean of 67.38. The p-values for the coefficients of the model are all less than 0.05, indicating that the predictors are statistically significant. The model is an improvement over the simple linear regression model, which only explained 25.77% of the variance in life expectancy. However, the model is not as good as the transformed linear regression model, which explained 72.98% of the variance in life expectancy. However, since it doesn't rely on transformed variables, it is easier to interpret the coefficients and make predictions on new data. The decision on which model to use would depend on the specific use case and the importance of interpretability vs accuracy. The simple non-transformed linear model is the easiest to read and interpret, but the least accurate. The multiple linear regression model is almost as simple with a significant increase in accuracy. The transformed linear regression model is by far the most accurate, but the most difficult to interpret.
+
+# 5. 
+## Forecast LifeExp when PropMD=.03 and TotExp = 14. Does this forecast seem realistic? Why or why not?
+
+```{r}
+new_data2 <- data.frame(PropMD = 0.03, TotExp = 14)
+predict_LifeExp <- predict(model3, newdata = new_data2)
+predict_LifeExp
+```
+The predicted life expectancy for the given data points based on the model from part 4 is 107.696. This does not seem like a realistic prediction. The highest life expectancy in the dataset is 83. While both values given as predictors are within the bounds of our training data, they are both on the extreme ends of the boundaries, where the model may not be as accurate. As noted in part 3, predicting values outside of the range of the data can lead to inaccurate predictions. It is also important to remember that this specific model is not nearly as accurate as some other models we can build including the model from part 2.
